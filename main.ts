@@ -9,19 +9,19 @@ import {
 	Setting,
 	Vault,
 } from "obsidian";
+import { stringify } from 'yaml'
 import { getAPI } from "obsidian-dataview";
 // Remember to rename these classes and interfaces!
-import { parse } from "csv-parse";
 interface MyPluginSettings {
 	mySetting: string;
-	year: number;
-	month: number;
+	year: string;
+	month: string;
 }
 
 const DEFAULT_SETTINGS: MyPluginSettings = {
 	mySetting: "default",
-	year: 2023,
-	month: 5,
+	year: "2023",
+	month: "5",
 };
 
 export default class MyPlugin extends Plugin {
@@ -46,70 +46,76 @@ export default class MyPlugin extends Plugin {
 		this.addCommand({
 			id: "open-sample-modal-simple",
 			name: "Open sample modal (simple)",
-			callback: async () => {
-				console.log(
-					api,
-					api.index.etags.delegate.invMap.get(this.settings.mySetting)
-				);
-				const array = api.index.etags.delegate.invMap.get(
-					this.settings.mySetting
-				);
-				let object = {
-					time_sleep: 0,
-					english: 0,
-					work: 0,
-					score: 0,
-					algoritms: 0,
-					focus_time: 0,
-					sport: 0
-				}
-				array.forEach((e) => {
-					const page = this.app.plugins.plugins.dataview.api.index.pages.get(e)
-						console.log(page.ctime.c.year , parseInt(this.settings.year) , page.ctime.c.month)
-					if(page.ctime.c.year == parseInt(this.settings.year) && page.ctime.c.month == parseInt(this.settings.month)) {
+			editorCallback: async (editor: Editor, view: MarkdownView) => {
+				try {
 
-						const regeXp = /\+/g
-				
-						console.log(page.fields.get)
-						if(typeof  page.fields.get("score") == "number"){
-							object.score = object.score + page.fields.get("score")
-						}
-						if(typeof page.fields.get("focus_time") == "number"){
-							object.focus_time = object.focus_time + page.fields.get("focus_time")
-						}
-
-						if(typeof page.fields.get("time_sleep") == "number"){
-							object.time_sleep = object.time_sleep + page.fields.get("time_sleep")
-						}
-						console.log(page.fields.get("algoritms"))
-						if( page.fields.get("algoritms")){
-							const find = page.fields.get("algoritms").match(regeXp)
-							if (find)
-								object.algoritms = object.algoritms + find.length
-						}
-
-						if( page.fields.get("english")){
-							console.log(page.fields.get("english"))
-							const find = page.fields.get("english").match(regeXp)
-							if (find)
-								object.english = object.english + find.length
-						}
-
-						if( page.fields.get("work")){
-							const find = page.fields.get("work").match(regeXp)
-							if (find)
-								object.work = object.work + find.length
-						}
-						console.log(page.fields.get("sport"))
-						if(typeof page.fields.get("sport") == "string"){
-							const find = page.fields.get("sport").match(regeXp)
-							if (find)
-								object.sport = object.sport + find.length
-						}
+	
+					const array = api?.index.etags.delegate.invMap.get(
+						this.settings.mySetting
+					);
+					let object = {
+						time_sleep: 0,
+						english: 0,
+						work: 0,
+						score: 0,
+						algoritms: 0,
+						focus_time: 0,
+						sport: 0
 					}
-					});
-
-				console.log(object)
+					array?.forEach((e) => {
+						const page = api?.index.pages.get(e)
+							
+						if(page?.ctime.c.year == parseInt(this.settings.year) && page?.ctime.c.month == parseInt(this.settings.month)) {
+	
+							const regeXp = /\+/g
+					
+							if(typeof page?.fields.get("score") == "number"){
+								object.score = object.score + page?.fields.get("score")
+							}
+							if(typeof page?.fields.get("focus_time") == "number"){
+								object.focus_time = object.focus_time + page?.fields.get("focus_time")
+							}
+	
+							if(typeof page?.fields.get("time_sleep") == "number"){
+								object.time_sleep = object.time_sleep + page?.fields.get("time_sleep")
+							}
+							console.log(page?.fields.get("algoritms"))
+							if( page?.fields.get("algoritms")){
+								const find = page?.fields.get("algoritms").match(regeXp)
+								if (find)
+									object.algoritms = object.algoritms + find.length
+							}
+	
+							if( page?.fields.get("english")){
+								console.log(page?.fields.get("english"))
+								const find = page?.fields.get("english").match(regeXp)
+								if (find)
+									object.english = object.english + find.length
+							}
+	
+							if( page?.fields.get("work")){
+								const find = page?.fields.get("work").match(regeXp)
+								if (find)
+									object.work = object.work + find.length
+							}
+					
+							if(typeof page?.fields.get("sport") == "string"){
+								const find = page?.fields.get("sport").match(regeXp)
+								if (find)
+									object.sport = object.sport + find.length
+							}
+						}
+						});
+	
+					
+	
+					
+					editor.replaceSelection(stringify(object));
+					new Notice("Generate")
+				}
+				catch(e) {
+					new Notice("Error")
+				}
 				// console.log(this.app.plugins.plugins.dataview.api.index.pages("#diary/daily"))
 			},
 		});
