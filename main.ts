@@ -60,11 +60,27 @@ export default class MyPlugin extends Plugin {
 					console.log(array);
 					const toDate = new Date(this.settings.toDate);
 					const fromDate = new Date(this.settings.fromDate);
+					const dateRange = getDateRange(
+						this.settings.fromDate,
+						this.settings.toDate
+					);
 					const arrayfields = [];
 					array?.forEach((e) => {
 						const page = api?.index.pages.get(e);
-						console.log(page.ctime);
-						if (page.ctime > toDate && page.ctime < fromDate) {
+						// TODO: this is strange
+
+						// if (page.ctime > toDate && page.ctime < fromDate) {
+						// 	arrayfields.push(
+						// 		Object.fromEntries(page.fields.entries())
+						// 	);
+						// }
+						// console.log(
+						// 	dateRange.includes(getLastValueAfterSlash(e)),
+						// 	getLastValueAfterSlash(e),
+						// 	dateRange,
+						// 	page
+						// );
+						if (dateRange.includes(getLastValueAfterSlash(e))) {
 							arrayfields.push(
 								Object.fromEntries(page.fields.entries())
 							);
@@ -160,20 +176,6 @@ class SampleSettingTab extends PluginSettingTab {
 			);
 
 		new Setting(containerEl)
-			.setName("To date")
-			.setDesc("To date")
-			.addText((text) =>
-				text
-					.setPlaceholder("Enter your secret")
-					.setValue(this.plugin.settings.toDate)
-					.onChange(async (value) => {
-						console.log("Secret: " + value);
-						this.plugin.settings.toDate = value;
-						await this.plugin.saveSettings();
-					})
-			);
-
-		new Setting(containerEl)
 			.setName("fromDate Report")
 			.setDesc("fromDate Report")
 			.addText((text) =>
@@ -183,6 +185,19 @@ class SampleSettingTab extends PluginSettingTab {
 					.onChange(async (value) => {
 						console.log("Secret: " + value);
 						this.plugin.settings.fromDate = value;
+						await this.plugin.saveSettings();
+					})
+			);
+		new Setting(containerEl)
+			.setName("To date")
+			.setDesc("To date")
+			.addText((text) =>
+				text
+					.setPlaceholder("Enter your secret")
+					.setValue(this.plugin.settings.toDate)
+					.onChange(async (value) => {
+						console.log("Secret: " + value);
+						this.plugin.settings.toDate = value;
 						await this.plugin.saveSettings();
 					})
 			);
@@ -273,3 +288,20 @@ const functionCopy = (object, type) => {
 	});
 	return newObj;
 };
+
+function getDateRange(fromDate, toDate) {
+	const dates = [];
+	let currentDate = new Date(fromDate);
+	const endDate = new Date(toDate);
+
+	while (currentDate <= endDate) {
+		dates.push(currentDate.toISOString().split("T")[0] + ".md");
+		currentDate.setDate(currentDate.getDate() + 1);
+	}
+
+	return dates;
+}
+function getLastValueAfterSlash(str) {
+	const parts = str.split("/");
+	return parts[parts.length - 1];
+}
