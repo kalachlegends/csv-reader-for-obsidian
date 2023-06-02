@@ -9,19 +9,21 @@ import {
 	Setting,
 	Vault,
 } from "obsidian";
-import { stringify } from 'yaml'
+import { stringify } from "yaml";
 import { getAPI } from "obsidian-dataview";
 // Remember to rename these classes and interfaces!
 interface MyPluginSettings {
 	mySetting: string;
-	year: string;
-	month: string;
+	fromDate: string;
+	toDate: string;
+	autoreporter: string;
 }
 
 const DEFAULT_SETTINGS: MyPluginSettings = {
-	mySetting: "default",
-	year: "2023",
-	month: "5",
+	mySetting: "#diary",
+	fromDate: "2023-06-02",
+	toDate: "2023-06-31",
+	autoreporter: "score(number)",
 };
 
 export default class MyPlugin extends Plugin {
@@ -48,73 +50,34 @@ export default class MyPlugin extends Plugin {
 			name: "Open sample modal (simple)",
 			editorCallback: async (editor: Editor, view: MarkdownView) => {
 				try {
+					console.log(api);
 
-	
 					const array = api?.index.etags.delegate.invMap.get(
 						this.settings.mySetting
 					);
-					let object = {
-						time_sleep: 0,
-						english: 0,
-						work: 0,
-						score: 0,
-						algoritms: 0,
-						focus_time: 0,
-						sport: 0
-					}
+					const objectsReport = this.settings.autoreporter;
+					const typeObject = handleObjectGet(objectsReport);
+					console.log(array);
+					const toDate = new Date(this.settings.toDate);
+					const fromDate = new Date(this.settings.fromDate);
+					const arrayfields = [];
 					array?.forEach((e) => {
-						const page = api?.index.pages.get(e)
-							
-						if(page?.ctime.c.year == parseInt(this.settings.year) && page?.ctime.c.month == parseInt(this.settings.month)) {
-	
-							const regeXp = /\+/g
-					
-							if(typeof page?.fields.get("score") == "number"){
-								object.score = object.score + page?.fields.get("score")
-							}
-							if(typeof page?.fields.get("focus_time") == "number"){
-								object.focus_time = object.focus_time + page?.fields.get("focus_time")
-							}
-	
-							if(typeof page?.fields.get("time_sleep") == "number"){
-								object.time_sleep = object.time_sleep + page?.fields.get("time_sleep")
-							}
-							console.log(page?.fields.get("algoritms"))
-							if( page?.fields.get("algoritms")){
-								const find = page?.fields.get("algoritms").match(regeXp)
-								if (find)
-									object.algoritms = object.algoritms + find.length
-							}
-	
-							if( page?.fields.get("english")){
-								console.log(page?.fields.get("english"))
-								const find = page?.fields.get("english").match(regeXp)
-								if (find)
-									object.english = object.english + find.length
-							}
-	
-							if( page?.fields.get("work")){
-								const find = page?.fields.get("work").match(regeXp)
-								if (find)
-									object.work = object.work + find.length
-							}
-					
-							if(typeof page?.fields.get("sport") == "string"){
-								const find = page?.fields.get("sport").match(regeXp)
-								if (find)
-									object.sport = object.sport + find.length
-							}
+						const page = api?.index.pages.get(e);
+						console.log(page.ctime);
+						if (page.ctime > toDate && page.ctime < fromDate) {
+							arrayfields.push(
+								Object.fromEntries(page.fields.entries())
+							);
 						}
-						});
-	
-					
-	
-					
+					});
+					// console.log(arrayfields);
+					const object = handleParcer(arrayfields, typeObject);
+					// console.log(object);
 					editor.replaceSelection(stringify(object));
-					new Notice("Generate")
-				}
-				catch(e) {
-					new Notice("Error")
+					new Notice("Generate");
+				} catch (e) {
+					console.log(e);
+					new Notice("Error");
 				}
 				// console.log(this.app.plugins.plugins.dataview.api.index.pages("#diary/daily"))
 			},
@@ -197,31 +160,116 @@ class SampleSettingTab extends PluginSettingTab {
 			);
 
 		new Setting(containerEl)
-			.setName("Year Report")
-			.setDesc("Year Report")
+			.setName("To date")
+			.setDesc("To date")
 			.addText((text) =>
 				text
 					.setPlaceholder("Enter your secret")
-					.setValue(this.plugin.settings.year)
+					.setValue(this.plugin.settings.toDate)
 					.onChange(async (value) => {
 						console.log("Secret: " + value);
-						this.plugin.settings.year = value;
+						this.plugin.settings.toDate = value;
 						await this.plugin.saveSettings();
 					})
 			);
 
 		new Setting(containerEl)
-			.setName("Year Report")
-			.setDesc("Mounth Report")
+			.setName("fromDate Report")
+			.setDesc("fromDate Report")
 			.addText((text) =>
 				text
 					.setPlaceholder("Enter your secret")
-					.setValue(this.plugin.settings.month)
+					.setValue(this.plugin.settings.fromDate)
 					.onChange(async (value) => {
 						console.log("Secret: " + value);
-						this.plugin.settings.month = value;
+						this.plugin.settings.fromDate = value;
+						await this.plugin.saveSettings();
+					})
+			);
+
+		new Setting(containerEl)
+			.setName("Objects")
+			.setDesc("Objects Report")
+			.addText((text) =>
+				text
+					.setPlaceholder("Enter your secret")
+					.setValue(this.plugin.settings.autoreporter)
+					.onChange(async (value) => {
+						console.log("Secret: " + value);
+						this.plugin.settings.autoreporter = value;
 						await this.plugin.saveSettings();
 					})
 			);
 	}
 }
+const handleObjectGet = (input) => {
+	const matchObjets = input.match(/\w+\((string|number)\)/g);
+	const tempObject = {};
+	console.log(matchObjets, "--");
+	matchObjets.forEach((el) => {
+		const key = el.replace(/\(\w+\)/g, "");
+		const value = el.replace(/\w+\(/g, "").replace(")", "");
+		tempObject[key] = value;
+	});
+	return tempObject;
+};
+const handleParcer = (fields, typeObject) => {
+	let entries = Object.entries(typeObject);
+	const resultOBject = {};
+	const copyObject = functionCopy(typeObject);
+	fields.forEach((el) => {
+		entries.forEach((entryEl) => {
+			const key = entryEl[0];
+			const type = entryEl[1];
+			const elementByEntry = el[key];
+			const regeXp = /\+/g;
+			if (typeof elementByEntry == type) {
+				if (type == "string") {
+					elementByEntry.split(" ").forEach((splitEl) => {
+						const countsPlus = counterPluss(splitEl);
+						copyObject[key]["+"] =
+							countsPlus + copyObject[key]["+"];
+						if (copyObject[key][splitEl]) {
+							copyObject[key][splitEl] =
+								copyObject[key][splitEl] + 1;
+						} else {
+							copyObject[key][splitEl] = 1;
+						}
+						// if (copyObject[key][splitEl + "_sum"]) {
+						// 	copyObject[key][splitEl + "_sum"] =
+						// 		copyObject[key][splitEl + "_sum"] + countsPlus;
+						// } else {
+						// 	copyObject[key][splitEl + "_sum"] = countsPlus;
+						// }
+					});
+				}
+				if (type == "number") {
+					copyObject[key] = copyObject[key] + elementByEntry;
+				}
+			}
+		});
+	});
+	return copyObject;
+};
+const counterPluss = (string) => {
+	const findRegexp = string.match(/\+/g);
+	if (findRegexp) {
+		return findRegexp.length;
+	}
+	return 0;
+};
+const functionCopy = (object, type) => {
+	const newObj = {};
+	Object.entries(object).forEach((el) => {
+		const type = el[1];
+		if (type == "string") {
+			newObj[el[0]] = {
+				"+": 0,
+			};
+		}
+		if (type == "number") {
+			newObj[el[0]] = 0;
+		}
+	});
+	return newObj;
+};
